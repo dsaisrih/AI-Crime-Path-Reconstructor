@@ -69,8 +69,3 @@ This project combines **AI + GIS + Data Visualization** to modernize crime inves
 - 📷 CCTV Integration  
 - ☁️ Cloud Storage  
 - 📱 Mobile Application  
-
----
-
-## 📸 Screenshots
-_Add your screenshots here_
