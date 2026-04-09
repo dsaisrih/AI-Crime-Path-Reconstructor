@@ -74,11 +74,3 @@ This project combines **AI + GIS + Data Visualization** to modernize crime inves
 
 ## 📸 Screenshots
 _Add your screenshots here_
-
----
-
-## 🚀 Installation
-
-```bash
-git clone https://github.com/your-username/ai-crime-path-reconstructor.git
-cd ai-crime-path-reconstructor
