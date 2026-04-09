@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CRIMEPATH — Forensic Route Intelligence</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+:root{--bg0:#060b12;--bg1:#0b1220;--bg2:#111a2b;--bg3:#172034;--border:#1c2e45;--border2:#243650;--accent:#00c8ff;--accent2:#0078d4;--accent-dim:#003d6b;--green:#00e676;--green-dim:#003d1e;--orange:#ff9800;--orange-dim:#3d2200;--red:#ff3d3d;--red-dim:#3d0000;--purple:#b388ff;--purple-dim:#2a1a4a;--yellow:#ffd740;--text1:#e8f0fe;--text2:#8ba8c8;--text3:#4a6a85;--radius:8px;--radius-lg:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',sans-serif;background:var(--bg0);color:var(--text1);display:flex;flex-direction:column}
+#topnav{height:48px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:14px;flex-shrink:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:1.2px;color:var(--accent);white-space:nowrap}
+.nav-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+.badge-live{padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.8px;background:#001a0a;border:1px solid #00c853;color:var(--green);animation:liveblink 2s infinite}
+@keyframes liveblink{0%,100%{opacity:1}50%{opacity:.5}}
+.nav-stats{display:flex;gap:16px;margin-left:auto;align-items:center}
+.nstat{text-align:center}
+.nstat-val{font-size:14px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;line-height:1}
+.nstat-lbl{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px}
+#clock{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);padding:4px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--border)}
+#main{flex:1;display:flex;overflow:hidden}
+#sidebar{width:340px;background:var(--bg1);display:flex;flex-direction:column;border-right:1px solid var(--border);z-index:10;overflow:hidden;flex-shrink:0;transition:width .3s ease}
+#sidebar.collapsed{width:0}
+#sb-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px}
+#sb-body::-webkit-scrollbar{width:3px}
+#sb-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+#status-bar{margin-bottom:11px;padding:7px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-size:10px;color:var(--accent);display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;min-height:30px}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:liveblink 1.5s infinite}
+.sdot.green{background:var(--green)}.sdot.orange{background:var(--orange)}.sdot.red{background:var(--red)}
+.tab-bar{display:flex;gap:2px;padding:3px;background:var(--bg0);border-radius:var(--radius);margin-bottom:12px;border:1px solid var(--border)}
+.tab{flex:1;padding:6px 2px;text-align:center;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;border-radius:5px;letter-spacing:.5px;text-transform:uppercase;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text2)}
+.tab.active{background:var(--bg2);color:var(--accent);border:1px solid var(--border2)}
+.slabel{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border)}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:12px}
+.mdbtn{padding:9px 4px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text3);font-size:9px;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:3px}
+.mdbtn .ico{font-size:16px}
+.mdbtn:hover{border-color:var(--border2);color:var(--text2)}
+.mdbtn.act-blue{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.mdbtn.act-green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.mdbtn.act-red{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.mdbtn.act-orange{background:var(--orange-dim);border-color:var(--orange);color:var(--orange)}
+.mdbtn.act-purple{background:var(--purple-dim);border-color:var(--purple);color:var(--purple)}
+.inp-lbl{font-size:9px;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+.inp{width:100%;padding:8px 10px;background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);color:var(--text1);font-size:11px;outline:none;transition:border .2s;margin-bottom:6px;font-family:'JetBrains Mono',monospace}
+.inp:focus{border-color:var(--accent)}
+.inp::placeholder{color:var(--text3);font-family:'Inter',sans-serif;font-size:10px}
+select.inp{font-family:'Inter',sans-serif;font-size:11px;cursor:pointer}
+.brow{display:flex;gap:5px;margin-bottom:6px}
+.btn{flex:1;padding:9px 6px;border:none;border-radius:var(--radius);font-size:10px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px}
+.btn:hover{filter:brightness(1.2);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-green{background:var(--green-dim);color:var(--green);border:1px solid #004a20}
+.btn-orange{background:var(--orange-dim);color:var(--orange);border:1px solid #4a2a00}
+.btn-red{background:var(--red-dim);color:var(--red);border:1px solid #4a0000}
+.btn-blue{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent2)}
+.btn-purple{background:var(--purple-dim);color:var(--purple);border:1px solid #4a2a8a}
+.btn-gray{background:var(--bg2);color:var(--text2);border:1px solid var(--border)}
+.btn-save{background:linear-gradient(135deg,#003d6b,#005fa3);color:var(--accent);border:1px solid var(--accent);box-shadow:0 0 14px rgba(0,200,255,.15)}
+.btn-save:hover{box-shadow:0 0 24px rgba(0,200,255,.3)}
+.btn-full{width:100%}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px;margin-bottom:10px}
+.card-title{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.card-glow{border-left:2px solid var(--accent)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.metric{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.metric-val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent);line-height:1}
+.metric-lbl{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:10px}
+.stat-row:last-child{border-bottom:none}
+.slbl{color:var(--text3)}.sval{color:var(--accent);font-weight:600;font-family:'JetBrains Mono',monospace}
+.sval.g{color:var(--green)}.sval.o{color:var(--orange)}.sval.r{color:var(--red)}.sval.p{color:var(--purple)}
+.pstep{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:10px}
+.pstep:last-child{border-bottom:none}
+.pnum{width:15px;height:15px;border-radius:50%;background:var(--bg0);border:1px solid var(--border2);color:var(--text3);font-size:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace}
+.pname{flex:1;color:var(--text2)}.pdist{color:var(--text3);font-family:'JetBrains Mono',monospace;font-size:9px}
+.ev-item{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:11px}
+.ev-item:last-child{border-bottom:none}
+.ev-badge{width:22px;height:22px;border-radius:50%;background:var(--orange-dim);color:var(--orange);border:1px solid var(--orange);font-weight:700;font-size:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace}
+.ev-main{flex:1}.ev-desc{color:var(--text1);margin-bottom:2px;font-size:11px}
+.ev-meta{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;line-height:1.6}
+.ev-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;transition:color .2s}
+.ev-del:hover{color:var(--red)}
+.tl-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.tl-item:last-child{border-bottom:none}
+.tl-spine{display:flex;flex-direction:column;align-items:center}
+.tl-dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--accent);background:var(--bg0);flex-shrink:0;margin-top:1px}
+.tl-line{width:1px;flex:1;background:var(--border);margin:4px 0}
+.tl-body{flex:1}
+.tl-time{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:2px}
+.tl-desc{font-size:11px;color:var(--text1)}.tl-sub{font-size:9px;color:var(--text3);margin-top:2px}
+.case-item{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:7px;transition:border .2s,background .2s}
+.case-item:hover{border-color:var(--border2);background:var(--bg2)}
+.case-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.case-name{font-size:12px;font-weight:600;color:var(--text1)}
+.sev{padding:2px 8px;border-radius:20px;font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border:1px solid}
+.sev-low{background:#001a0a;border-color:#004020;color:var(--green)}
+.sev-medium{background:#1a1400;border-color:#4a3800;color:var(--yellow)}
+.sev-high{background:#1a0d00;border-color:#4a2800;color:var(--orange)}
+.sev-critical{background:#1a0000;border-color:#4a0000;color:var(--red)}
+.case-meta{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:6px;line-height:1.7}
+.case-actions{display:flex;gap:4px}
+.cbtn{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;border:1px solid;cursor:pointer;letter-spacing:.3px;text-transform:uppercase;transition:all .2s}
+.cbtn:hover{filter:brightness(1.3)}
+.sus-item{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:6px}
+.sus-name{font-size:12px;font-weight:600;color:var(--purple);margin-bottom:3px}
+.sus-meta{font-size:9px;color:var(--text3);line-height:1.6}
+.sus-del{float:right;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px}
+.sus-del:hover{color:var(--red)}
+#map-wrap{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%}
+#map-controls{position:absolute;top:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:5px}
+.mctrl{width:36px;height:36px;background:rgba(11,18,32,.92);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(8px)}
+.mctrl:hover{border-color:var(--accent);color:var(--accent)}
+.mctrl.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+#style-panel{position:absolute;top:12px;right:56px;z-index:500;background:rgba(11,18,32,.95);border:1px solid var(--border2);border-radius:var(--radius);padding:6px;display:none;flex-direction:column;gap:2px;box-shadow:0 4px 20px rgba(0,0,0,.6);backdrop-filter:blur(10px)}
+.style-opt{padding:6px 12px;border-radius:5px;font-size:10px;cursor:pointer;color:var(--text2);transition:all .2s;white-space:nowrap}
+.style-opt:hover,.style-opt.sel{background:var(--bg2);color:var(--accent)}
+#geocoder-wrap{position:absolute;top:12px;left:12px;z-index:500;display:flex;gap:6px}
+#geo-inp{padding:8px 12px;background:rgba(11,18,32,.92);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text1);font-size:11px;outline:none;font-family:'Inter',sans-serif;width:200px;backdrop-filter:blur(10px)}
+#geo-inp::placeholder{color:var(--text3)}
+#geo-inp:focus{border-color:var(--accent)}
+#geo-btn{width:34px;height:34px;background:rgba(11,18,32,.92);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
+#geo-btn:hover{border-color:var(--accent);color:var(--accent)}
+#info-bar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:500;background:rgba(11,18,32,.92);border:1px solid var(--border2);border-radius:20px;padding:5px 16px;font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--text2);display:flex;align-items:center;gap:12px;backdrop-filter:blur(10px)}
+.ibi{display:flex;align-items:center;gap:4px}
+.ibl{color:var(--text3)}.ibv{color:var(--accent);font-weight:600}
+#tsidebar{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:600;width:16px;height:44px;background:var(--bg2);border:1px solid var(--border2);border-left:none;border-radius:0 6px 6px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:10px;transition:all .2s}
+#tsidebar:hover{background:var(--accent-dim);color:var(--accent)}
+#hm-legend{position:absolute;bottom:48px;right:12px;z-index:500;background:rgba(11,18,32,.9);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 12px;display:none}
+.hml-title{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.hml-grad{height:7px;width:110px;border-radius:3px;background:linear-gradient(90deg,#0000ff88,#00ffff88,#00ff0088,#ffff0088,#ff000088);margin-bottom:3px}
+.hml-row{display:flex;justify-content:space-between;font-size:8px;color:var(--text3)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:20px;width:330px;box-shadow:0 16px 60px rgba(0,0,0,.6)}
+.modal-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.modal-ico{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.modal h3{font-size:13px;font-weight:600;color:var(--text1)}
+.mlbl{font-size:9px;color:var(--text3);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.6px}
+.modal textarea{width:100%;padding:8px 10px;background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius);color:var(--text1);font-size:11px;margin-bottom:10px;outline:none;font-family:'Inter',sans-serif;resize:vertical;min-height:60px}
+.modal textarea:focus{border-color:var(--accent)}
+.modal-actions{display:flex;gap:7px;margin-top:2px}
+#toast{position:fixed;bottom:20px;right:20px;z-index:3000;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.tmsg{padding:9px 14px;border-radius:var(--radius);font-size:10px;font-weight:600;display:flex;align-items:center;gap:7px;animation:tin .25s ease;border:1px solid;max-width:260px;pointer-events:all}
+@keyframes tin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.t-success{background:#001a0a;border-color:#004020;color:var(--green)}
+.t-info{background:var(--accent-dim);border-color:var(--accent2);color:var(--accent)}
+.t-error{background:var(--red-dim);border-color:#5a0000;color:var(--red)}
+.t-warn{background:var(--orange-dim);border-color:#5a2800;color:var(--orange)}
+.leaflet-popup-content-wrapper{background:var(--bg2)!important;border:1px solid var(--border2)!important;border-radius:var(--radius)!important;color:var(--text1)!important;box-shadow:0 4px 20px rgba(0,0,0,.5)!important}
+.leaflet-popup-tip{background:var(--bg2)!important}
+.leaflet-popup-content{margin:10px 13px!important;font-size:11px!important;line-height:1.6!important}
+.leaflet-attribution-flag{display:none!important}
+.leaflet-control-attribution{background:rgba(6,11,18,.8)!important;color:var(--text3)!important;font-size:8px!important}
+.mt{font-family:'JetBrains Mono',monospace;font-size:9px;background:rgba(11,18,32,.9);border:1px solid var(--accent);border-radius:5px;padding:3px 7px;color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div id="topnav">
+  <div class="logo">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><circle cx="11" cy="11" r="3"/></svg>
+    CRIMEPATH
+  </div>
+  <div class="nav-sep"></div>
+  <div class="badge-live">● LIVE</div>
+  <div class="nav-sep"></div>
+  <span style="font-size:9px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase">Forensic Route Intelligence v2</span>
+  <div class="nav-stats">
+    <div class="nstat"><div class="nstat-val" id="n-cases">0</div><div class="nstat-lbl">Cases</div></div>
+    <div class="nav-sep"></div>
+    <div class="nstat"><div class="nstat-val" id="n-ev">0</div><div class="nstat-lbl">Evidence</div></div>
+    <div class="nav-sep"></div>
+    <div class="nstat"><div class="nstat-val" id="n-dist">—</div><div class="nstat-lbl">km Route</div></div>
+    <div class="nav-sep"></div>
+    <div id="clock"></div>
+  </div>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div id="sb-body">
+      <div id="status-bar"><div class="sdot" id="sdot"></div><span id="stxt">Select a mode, then click the map</span></div>
+
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('ctrl')">Control</div>
+        <div class="tab" onclick="switchTab('cases')">Cases</div>
+        <div class="tab" onclick="switchTab('evidence')">Evidence</div>
+        <div class="tab" onclick="switchTab('timeline')">Timeline</div>
+        <div class="tab" onclick="switchTab('suspects')">Suspects</div>
+      </div>
+
+      <!-- CONTROL TAB -->
+      <div id="tab-ctrl">
+        <div class="slabel">Interaction Mode</div>
+        <div class="mode-grid">
+          <div class="mdbtn act-green" id="md-start" onclick="setMode('start')"><span class="ico">🟢</span>Start</div>
+          <div class="mdbtn" id="md-end" onclick="setMode('end')"><span class="ico">🔴</span>End</div>
+          <div class="mdbtn" id="md-evidence" onclick="setMode('evidence')"><span class="ico">📍</span>Evidence</div>
+          <div class="mdbtn" id="md-suspect" onclick="setMode('suspect')"><span class="ico">👤</span>Suspect</div>
+          <div class="mdbtn" id="md-measure" onclick="setMode('measure')"><span class="ico">📏</span>Measure</div>
+          <div class="mdbtn" id="md-zone" onclick="setMode('zone')"><span class="ico">⬡</span>Zone</div>
+        </div>
+
+        <div class="slabel">Locations</div>
+        <div class="inp-lbl"><span class="dot" style="background:var(--green)"></span>Start Point</div>
+        <input class="inp" id="inp-start" placeholder="Click map to place" readonly/>
+        <div class="inp-lbl"><span class="dot" style="background:var(--red)"></span>End Point</div>
+        <input class="inp" id="inp-end" placeholder="Click map to place" readonly/>
+
+        <div class="slabel">Case Info</div>
+        <input class="inp" id="inp-name" placeholder="Case name…"/>
+        <select class="inp" id="inp-ctype">
+          <option value="">Crime type…</option>
+          <option>Robbery</option><option>Assault</option><option>Homicide</option>
+          <option>Burglary</option><option>Vehicle Theft</option><option>Drug Offense</option>
+          <option>Fraud</option><option>Kidnapping</option><option>Terrorism</option><option>Other</option>
+        </select>
+
+        <div class="brow"><button class="btn btn-green" onclick="reconstructPath()">⚡ Reconstruct Route</button><button class="btn btn-orange" onclick="clearMap(false)">✕ Clear</button></div>
+        <div class="brow"><button class="btn btn-save btn-full" onclick="openSaveModal()">💾 Save Crime Case</button></div>
+
+        <div class="card card-glow" id="path-card" style="display:none;margin-top:10px">
+          <div class="card-title">Route Analysis <span id="rbadge" style="padding:2px 7px;border-radius:10px;background:var(--green-dim);color:var(--green);font-size:8px;border:1px solid #004a20">ROAD</span></div>
+          <div class="metrics">
+            <div class="metric"><div class="metric-val" id="m-dist">—</div><div class="metric-lbl">Distance</div></div>
+            <div class="metric"><div class="metric-val" id="m-dur">—</div><div class="metric-lbl">Drive Time</div></div>
+            <div class="metric"><div class="metric-val" id="m-spd">—</div><div class="metric-lbl">Avg Speed</div></div>
+            <div class="metric"><div class="metric-val" id="m-seg">—</div><div class="metric-lbl">Road Segs</div></div>
+          </div>
+          <div id="path-steps" style="max-height:150px;overflow-y:auto"></div>
+        </div>
+      </div>
+
+      <!-- CASES TAB -->
+      <div id="tab-cases" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="slabel" style="margin:0;flex:1">Saved Cases</div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-blue" style="padding:4px 8px;font-size:9px" onclick="exportAllCases()">Export All</button>
+            <button class="btn btn-red" style="padding:4px 8px;font-size:9px" onclick="clearAllCases()">Clear All</button>
+          </div>
+        </div>
+        <div id="cases-list"></div>
+      </div>
+
+      <!-- EVIDENCE TAB -->
+      <div id="tab-evidence" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="slabel" style="margin:0;flex:1">Evidence Log</div>
+          <button class="btn btn-blue" onclick="filterEvidence('all')">All</button>
+<button class="btn btn-blue" onclick="filterEvidence('route')">Route</button>
+<button class="btn btn-blue" onclick="filterEvidence('normal')">Normal</button>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-purple" style="padding:4px 8px;font-size:9px" onclick="toggleHeatmap()">🔥 Heatmap</button>
+            <button class="btn btn-gray" style="padding:4px 8px;font-size:9px" onclick="clearEvidence()">Clear</button>
+          </div>
+        </div>
+        <div id="evidence-list"></div>
+      </div>
+
+      <!-- TIMELINE TAB -->
+      <div id="tab-timeline" style="display:none">
+        <div class="slabel">Crime Timeline</div>
+        <div id="timeline-list"><div style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Set route &amp; add evidence<br/>to generate timeline</div></div>
+      </div>
+
+      <!-- SUSPECTS TAB -->
+      <div id="tab-suspects" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="slabel" style="margin:0;flex:1">Suspect Profiles</div>
+          <button class="btn btn-purple" style="padding:4px 8px;font-size:9px" onclick="openSuspectModal(null)">+ Add</button>
+        </div>
+        <div id="suspect-list"><div style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">No suspects logged.<br/>Use Suspect mode on map.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map-wrap">
+    <div id="tsidebar" onclick="toggleSidebar()">◀</div>
+
+    <div id="geocoder-wrap">
+      <input id="geo-inp" placeholder="Search location…"/>
+      <button id="geo-btn" onclick="geocode()">🔍</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="style-panel">
+      <div class="style-opt" onclick="setMapStyle('dark')">🌑 Dark</div>
+      <div class="style-opt sel" onclick="setMapStyle('satellite')">🛰 Satellite</div>
+      <div class="style-opt" onclick="setMapStyle('topo')">🗺 Topo</div>
+      <div class="style-opt" onclick="setMapStyle('light')">☀ Light</div>
+    </div>
+
+    <div id="map-controls">
+      <button class="mctrl" onclick="toggleStylePanel()" title="Map Style">🗺</button>
+      <button class="mctrl" id="btn-hm" onclick="toggleHeatmap()" title="Heatmap">🔥</button>
+      <button class="mctrl" onclick="map.zoomIn()" title="Zoom In">+</button>
+      <button class="mctrl" onclick="map.zoomOut()" title="Zoom Out">−</button>
+      <button class="mctrl" onclick="fitRoute()" title="Fit Route">⊡</button>
+      <button class="mctrl" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+    </div>
+
+    <div id="hm-legend">
+      <div class="hml-title">Evidence Density</div>
+      <div class="hml-grad"></div>
+      <div class="hml-row"><span>Low</span><span>High</span></div>
+    </div>
+
+    <div id="info-bar">
+      <div class="ibi"><span class="ibl">LAT</span><span class="ibv" id="il">—</span></div>
+      <div class="ibi"><span class="ibl">LON</span><span class="ibv" id="io">—</span></div>
+      <div class="ibi"><span class="ibl">ZOOM</span><span class="ibv" id="iz">3</span></div>
+      <div class="ibi"><span class="ibl">MODE</span><span class="ibv" id="im">START</span></div>
+      <div class="ibi"><span class="ibl">EV</span><span class="ibv" id="ie">0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Evidence Modal -->
+<div class="modal-bg" id="ev-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-hd"><div class="modal-ico" style="background:var(--orange-dim)">📍</div><h3>Log Evidence Point</h3></div>
+    <label class="mlbl">Description *</label>
+    <textarea id="ev-desc" placeholder="Describe the evidence found at this location…"></textarea>
+    <label class="mlbl">Evidence Type</label>
+    <label class="mlbl">Evidence Category</label>
+<select class="inp" id="ev-category" style="margin-bottom:10px">
+  <option value="normal">Normal Evidence</option>
+  <option value="route">Route Evidence (on path)</option>
+</select>
+    <select class="inp" id="ev-type" style="margin-bottom:10px">
+      <option value="Physical">Physical</option><option value="Digital">Digital</option>
+      <option value="Witness">Witness Statement</option><option value="CCTV">CCTV / Camera</option>
+      <option value="Forensic">Forensic</option><option value="Document">Document</option><option value="Other">Other</option>
+    </select>
+    <label class="mlbl">Timestamp</label>
+    <input class="inp" id="ev-time" type="datetime-local" style="margin-bottom:12px"/>
+    <div class="modal-actions">
+      <button class="btn btn-orange btn-full" onclick="confirmEvidence()">Log Evidence</button>
+      <button class="btn btn-gray" onclick="document.getElementById('ev-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save Modal -->
+<div class="modal-bg" id="save-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-hd"><div class="modal-ico" style="background:var(--accent-dim)">💾</div><h3>Save Crime Case</h3></div>
+    <label class="mlbl">Case Name *</label>
+    <input class="inp" id="sv-name" placeholder="Enter case name…"/>
+    <label class="mlbl">Severity</label>
+    <select class="inp" id="sv-sev" style="margin-bottom:10px">
+      <option value="low">Low</option><option value="medium">Medium</option>
+      <option value="high" selected>High</option><option value="critical">Critical</option>
+    </select>
+    <label class="mlbl">Investigating Officer</label>
+    <input class="inp" id="sv-off" placeholder="Officer name / badge number…" style="margin-bottom:10px"/>
+    <label class="mlbl">Case Notes</label>
+    <textarea id="sv-notes" placeholder="Additional observations, suspect details, next steps…"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-save btn-full" onclick="confirmSave()">Save Case</button>
+      <button class="btn btn-gray" onclick="document.getElementById('save-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Suspect Modal -->
+<div class="modal-bg" id="sus-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-hd"><div class="modal-ico" style="background:var(--purple-dim)">👤</div><h3>Add Suspect Profile</h3></div>
+    <label class="mlbl">Name / Alias *</label>
+    <input class="inp" id="sus-name" placeholder="Full name or alias…"/>
+    <label class="mlbl">Physical Description</label>
+    <textarea id="sus-desc" placeholder="Height, build, clothing, identifying features…"></textarea>
+    <label class="mlbl">Last Known Location</label>
+    <input class="inp" id="sus-loc" placeholder="Auto-filled if placed on map" style="margin-bottom:12px"/>
+    <div class="modal-actions">
+      <button class="btn btn-purple btn-full" onclick="confirmSuspect()">Add Suspect</button>
+      <button class="btn btn-gray" onclick="document.getElementById('sus-modal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Measure Result -->
+<div class="modal-bg" id="meas-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-hd"><div class="modal-ico" style="background:#1a1a3a">📏</div><h3>Measurement</h3></div>
+    <div id="meas-content" style="font-size:13px;color:var(--text1);font-family:'JetBrains Mono',monospace;line-height:2.2;margin-bottom:14px"></div>
+    <button class="btn btn-gray btn-full" onclick="document.getElementById('meas-modal').style.display='none';clearMeasure()">Done</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// MAP
+const map=L.map('map',{zoomControl:false,attributionControl:true}).setView([20,0],3);
+const tiles={
+  dark:L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20}),
+  satellite:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20}),
+topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxZoom:17}),
+  light:L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20})
+};
+let curStyle='satellite'; tiles.satellite.addTo(map);
+// STATE
+let mode='start',startLL=null,endLL=null;
+let evPoints=[],evMarkers=[],evCircles=[],suspects=[],susMarkers=[];
+let pathCoords=[],segments=[],totalDist=0,totalDur=0;
+let startMk=null,endMk=null,routeLayer=null,glowLayer=null;
+let pendingEvLL=null,susClickLL=null;
+let crimeHistory=JSON.parse(localStorage.getItem('cp_cases_v2')||'[]');
+let timeline=[];
+let measPts=[],measMks=[],measLayer=null;
+let hmActive=false,hmCircles=[];
+let sbOpen=true;
+let zonePts=[],zoneLayers=[],zonePolyLayer=null;
+
+// CLOCK
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-GB',{hour12:false})},1000);
+document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-GB',{hour12:false});
+
+// STATUS
+function setStatus(msg,type='info'){
+  const dot=document.getElementById('sdot'),colors={info:'var(--accent)',success:'var(--green)',warn:'var(--orange)',error:'var(--red)'};
+  dot.style.background=colors[type]||colors.info;
+  document.getElementById('stxt').textContent=msg;
+  document.getElementById('im').textContent=mode.toUpperCase();
+}
+
+// TOAST
+function toast(msg,type='info'){
+  const el=document.createElement('div');
+  el.className='tmsg t-'+type; el.textContent=msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},2800);
+}
+
+// ICONS
+function mkIcon(color,lbl,sz=28){
+  return L.divIcon({className:'',html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color}18;border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-size:${Math.round(sz*.38)}px;font-weight:700;color:${color};box-shadow:0 0 14px ${color}44,0 2px 8px rgba(0,0,0,.6)">${lbl}</div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+}
+function evIcon(n){return L.divIcon({className:'',html:`<div style="width:22px;height:22px;border-radius:50%;background:#3d220018;border:2px solid #ff9800;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#ff9800;box-shadow:0 0 10px #ff980044;font-family:'JetBrains Mono',monospace">${n}</div>`,iconSize:[22,22],iconAnchor:[11,11]})}
+function susIcon(){return L.divIcon({className:'',html:`<div style="width:26px;height:26px;border-radius:50%;background:#2a1a4a;border:2px solid #b388ff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 0 12px #b388ff44">👤</div>`,iconSize:[26,26],iconAnchor:[13,13]})}
+function dotIcon(){return L.divIcon({className:'',html:`<div style="width:9px;height:9px;border-radius:50%;background:var(--accent);border:2px solid #fff;"></div>`,iconSize:[9,9],iconAnchor:[4,4]})}
+
+// MODE
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mdbtn').forEach(b=>b.className='mdbtn');
+  const cls={start:'act-green',end:'act-red',evidence:'act-orange',suspect:'act-purple',measure:'act-blue',zone:'act-blue'};
+  const el=document.getElementById('md-'+m); if(el) el.classList.add(cls[m]||'act-blue');
+  const msgs={start:'Click map to set START point',end:'Click map to set END point',evidence:'Click map to log EVIDENCE',suspect:'Click map to place SUSPECT location',measure:'Click 2 points on map to measure distance',zone:'Click map to draw zone, double-click to finish'};
+  setStatus(msgs[m],'info');
+  if(m!=='measure'&&measPts.length===1) clearMeasure();
+  if(m!=='zone') finalizeZone();
+}
+
+// MAP EVENTS
+map.on('mousemove',e=>{document.getElementById('il').textContent=e.latlng.lat.toFixed(5);document.getElementById('io').textContent=e.latlng.lng.toFixed(5)});
+map.on('zoomend',()=>document.getElementById('iz').textContent=map.getZoom());
+
+map.on('click',async function(e){
+  const {lat,lng}=e.latlng;
+  if(mode==='start'){
+    startLL=[lat,lng];
+    if(startMk) map.removeLayer(startMk);
+    startMk=L.marker([lat,lng],{icon:mkIcon('#00e676','S'),draggable:true}).addTo(map).bindTooltip('START',{className:'mt'});
+    startMk.on('dragend',ev=>{const p=ev.target.getLatLng();startLL=[p.lat,p.lng];document.getElementById('inp-start').value=p.lat.toFixed(5)+', '+p.lng.toFixed(5)});
+    document.getElementById('inp-start').value=lat.toFixed(5)+', '+lng.toFixed(5);
+    toast('Start point set','success');
+    if(endLL) await reconstructPath(); else setMode('end');
+  } else if(mode==='end'){
+    endLL=[lat,lng];
+    if(endMk) map.removeLayer(endMk);
+    endMk=L.marker([lat,lng],{icon:mkIcon('#ff3d3d','E'),draggable:true}).addTo(map).bindTooltip('END',{className:'mt'});
+    endMk.on('dragend',ev=>{const p=ev.target.getLatLng();endLL=[p.lat,p.lng];document.getElementById('inp-end').value=p.lat.toFixed(5)+', '+p.lng.toFixed(5)});
+    document.getElementById('inp-end').value=lat.toFixed(5)+', '+lng.toFixed(5);
+    toast('End point set — routing…','info');
+    await reconstructPath();
+  } else if(mode==='evidence'){
+    pendingEvLL=[lat,lng];
+    document.getElementById('ev-desc').value='';
+    document.getElementById('ev-time').value=new Date().toISOString().slice(0,16);
+    document.getElementById('ev-modal').style.display='flex';
+  } else if(mode==='suspect'){
+    susClickLL=[lat,lng];
+    document.getElementById('sus-name').value='';document.getElementById('sus-desc').value='';
+    document.getElementById('sus-loc').value=lat.toFixed(5)+', '+lng.toFixed(5);
+    document.getElementById('sus-modal').style.display='flex';
+  } else if(mode==='measure'){
+    doMeasure(lat,lng);
+  } else if(mode==='zone'){
+    zonePts.push([lat,lng]);
+    if(zonePolyLayer) map.removeLayer(zonePolyLayer);
+    if(zonePts.length>1) zonePolyLayer=L.polyline(zonePts,{color:'#b388ff',weight:2,dashArray:'6 3'}).addTo(map);
+    const mk=L.marker([lat,lng],{icon:dotIcon()}).addTo(map); zoneLayers.push(mk);
+  }
+});
+map.on('dblclick',()=>{if(mode==='zone')finalizeZone()});
+
+// ZONE
+function finalizeZone(){
+  if(zonePts.length>=3){
+    if(zonePolyLayer) map.removeLayer(zonePolyLayer);
+    const poly=L.polygon(zonePts,{color:'#b388ff',fillColor:'#b388ff',fillOpacity:.1,weight:2,dashArray:'6 3'}).addTo(map).bindTooltip(`Zone (${zonePts.length} pts)`,{className:'mt'});
+    zoneLayers.push(poly); toast('Zone boundary added','info');
+  }
+  zonePts=[]; if(zonePolyLayer){map.removeLayer(zonePolyLayer);zonePolyLayer=null;}
+}
+
+// MEASURE
+function doMeasure(lat,lng){
+  measPts.push([lat,lng]);
+  const mk=L.marker([lat,lng],{icon:dotIcon()}).addTo(map); measMks.push(mk);
+  if(measPts.length===2){
+    if(measLayer) map.removeLayer(measLayer);
+    measLayer=L.polyline(measPts,{color:'#00c8ff',weight:2,dashArray:'5 5'}).addTo(map);
+    const d=haversine(measPts[0],measPts[1]),b=bearing(measPts[0],measPts[1]);
+    document.getElementById('meas-content').innerHTML=
+      `Distance: <span style="color:var(--green)">${d.toFixed(3)} km</span>\n`+
+      `(${(d*1000).toFixed(0)} m / ${(d*0.621371).toFixed(3)} mi)\n`+
+      `Bearing: <span style="color:var(--accent)">${b.toFixed(1)}°</span>`;
+    document.getElementById('meas-modal').style.display='flex';
+  }
+}
+function clearMeasure(){measPts=[];measMks.forEach(m=>map.removeLayer(m));measMks=[];if(measLayer){map.removeLayer(measLayer);measLayer=null;}}
+function haversine(a,b){const R=6371,dLat=(b[0]-a[0])*Math.PI/180,dLon=(b[1]-a[1])*Math.PI/180,x=Math.sin(dLat/2)**2+Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+function bearing(a,b){const dL=(b[1]-a[1])*Math.PI/180,la=a[0]*Math.PI/180,lb=b[0]*Math.PI/180;return(Math.atan2(Math.sin(dL)*Math.cos(lb),Math.cos(la)*Math.sin(lb)-Math.sin(la)*Math.cos(lb)*Math.cos(dL))*180/Math.PI+360)%360}
+
+// RECONSTRUCT
+async function reconstructPath(){
+  if(!startLL||!endLL){toast('Set Start and End first','error');return}
+  setStatus('Fetching road route…','info');
+  try{
+    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${startLL[1]},${startLL[0]};${endLL[1]},${endLL[0]}?overview=full&geometries=geojson&steps=true`);
+    const d=await r.json();
+    if(!d.routes||!d.routes[0]){toast('No road route found','error');return}
+    const route=d.routes[0];
+    pathCoords=route.geometry.coordinates.map(([ln,lt])=>[lt,ln]);
+    totalDist=route.distance/1000; totalDur=route.duration/60;
+    segments=[]; route.legs.forEach(l=>l.steps.forEach(s=>{if(s.distance>30)segments.push({name:s.name||'Road',dist:s.distance/1000})}));
+
+    if(glowLayer) map.removeLayer(glowLayer);
+    if(routeLayer) map.removeLayer(routeLayer);
+    glowLayer=L.polyline(pathCoords,{color:'#00c8ff',weight:12,opacity:.12}).addTo(map);
+    routeLayer=L.polyline(pathCoords,{color:'#00c8ff',weight:3,opacity:.95}).addTo(map);
+
+    document.getElementById('path-card').style.display='block';
+    document.getElementById('m-dist').textContent=totalDist.toFixed(2)+' km';
+    document.getElementById('m-dur').textContent=totalDur.toFixed(0)+' min';
+    document.getElementById('m-spd').textContent=((totalDist/(totalDur/60))||0).toFixed(0)+' km/h';
+    document.getElementById('m-seg').textContent=segments.length;
+    document.getElementById('n-dist').textContent=totalDist.toFixed(2);
+
+    document.getElementById('path-steps').innerHTML=segments.slice(0,14).map((s,i)=>`
+      <div class="pstep"><div class="pnum">${i+1}</div><div class="pname">${s.name}</div><div class="pdist">${s.dist.toFixed(2)}km</div></div>`).join('')+
+      (segments.length>14?`<div style="text-align:center;color:var(--text3);font-size:9px;padding:4px">+${segments.length-14} more</div>`:'');
+
+    buildTimeline(); fitRoute();
+    setStatus(`Route: ${totalDist.toFixed(2)} km · ${totalDur.toFixed(0)} min`,'success');
+    toast(`Route: ${totalDist.toFixed(2)} km`,'success');
+  }catch(err){toast('Routing failed','error');setStatus('Routing failed','error');console.error(err)}
+}
+
+// TIMELINE
+function buildTimeline(){
+  timeline=[];
+  if(startLL) timeline.push({time:'T+0:00',desc:'Departs from start location',sub:document.getElementById('inp-start').value,type:'start'});
+  const spd=totalDist&&totalDur?(totalDist/(totalDur/60)):60;
+  evPoints.forEach((ep,i)=>{
+    const d=haversine(startLL,[ep.lat,ep.lon]),m=(d/spd)*60;
+    timeline.push({time:`T+${Math.floor(m)}:${String(Math.round((m%1)*60)).padStart(2,'0')}`,desc:ep.description,sub:ep.type+' evidence',type:'evidence'});
+  });
+  if(endLL) timeline.push({time:`T+${Math.floor(totalDur)}:${String(Math.round((totalDur%1)*60)).padStart(2,'0')}`,desc:'Arrives at end location',sub:document.getElementById('inp-end').value,type:'end'});
+  renderTimeline();
+}
+function renderTimeline(){
+  const el=document.getElementById('timeline-list');
+  if(!timeline.length){el.innerHTML='<div style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">Set route &amp; add evidence to generate timeline</div>';return}
+  const cols={start:'var(--green)',end:'var(--red)',evidence:'var(--orange)',suspect:'var(--purple)'};
+  el.innerHTML=timeline.map((t,i)=>`
+    <div class="tl-item">
+      <div class="tl-spine"><div class="tl-dot" style="border-color:${cols[t.type]||'var(--accent)'}"></div>${i<timeline.length-1?'<div class="tl-line"></div>':''}</div>
+      <div class="tl-body"><div class="tl-time">${t.time}</div><div class="tl-desc">${t.desc}</div><div class="tl-sub">${t.sub}</div></div>
+    </div>`).join('');
+}
+
+// EVIDENCE
+function confirmEvidence(){
+  const desc=document.getElementById('ev-desc').value.trim();
+  if(!desc){toast('Description required','error');return}
+  const type=document.getElementById('ev-type').value,
+      category=document.getElementById('ev-category').value,
+      time=document.getElementById('ev-time').value;  const [lat,lon]=pendingEvLL, n=evPoints.length+1;
+      if(category === 'route' && pathCoords.length){
+  let nearest = pathCoords.reduce((prev, curr) => {
+    const d1 = haversine([lat,lon], prev);
+    const d2 = haversine([lat,lon], curr);
+    return d2 < d1 ? curr : prev;
+  });
+  pendingEvLL = nearest;
+}
+      evPoints.push({lat,lon,description:desc,type,category,time,added:new Date().toISOString()});
+  const iconType = category === 'route' ? '🛣' : n;
+
+const m=L.marker([lat,lon],{
+  icon: category === 'route'
+    ? L.divIcon({
+        className:'',
+        html:`<div style="width:24px;height:24px;border-radius:50%;background:#003d6b;border:2px solid #00c8ff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#00c8ff">🛣</div>`,
+        iconSize:[24,24],
+        iconAnchor:[12,12]
+      })
+    : evIcon(n)
+}).addTo(map)
+
+    .bindPopup(`<b style="color:#ff9800">Evidence #${n}</b><br/><span style="color:#8ba8c8">${type}</span><br/>${desc}<br/><small style="color:#4a6a85">${time}</small>`);
+if(category === 'route'){
+  const c = L.circle([lat,lon],{
+    radius:50,
+    color:'#00c8ff',
+    fillColor:'#00c8ff',
+    fillOpacity:0.2
+  }).addTo(map);
+
+  evCircles.push(c);
+}
+  evMarkers.push(m);
+  document.getElementById('ev-modal').style.display='none';
+  updateEvCount();renderEvidenceTab();buildTimeline();
+  if(hmActive) renderHeatmap();
+  toast(`Evidence #${n} logged`,'warn');
+  if(category === 'route' && pathCoords.length){
+  let nearest = pathCoords.reduce((prev, curr) => {
+    const d1 = haversine([lat,lon], prev);
+    const d2 = haversine([lat,lon], curr);
+    return d2 < d1 ? curr : prev;
+  });
+  pendingEvLL = nearest;
+}
+}
+function updateEvCount(){
+  document.getElementById('ie').textContent=evPoints.length;
+  document.getElementById('n-ev').textContent=evPoints.length;
+}
+function renderEvidenceTab(){
+  const el=document.getElementById('evidence-list');
+  if(!evPoints.length){el.innerHTML='<div style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">No evidence logged.<br/>Use Evidence mode on map.</div>';return}
+  const icons={Physical:'🔍',Digital:'💻',Witness:'👁',CCTV:'📷',Forensic:'🧪',Document:'📄',Other:'📌'};
+  el.innerHTML=evPoints.map((ep,i)=>`
+    <div class="ev-item">
+      <div class="ev-badge">${i+1}</div>
+      <div class="ev-main">
+        <div class="ev-desc">${icons[ep.type]||'📌'} ${ep.description}</div>
+        <div class="ev-meta">${ep.type} · ${ep.category} · ${ep.lat.toFixed(4)}, ${ep.lon.toFixed(4)}<br/>${ep.time}</div>
+      </div>
+      <button class="ev-del" onclick="removeEvidence(${i})">×</button>
+    </div>`).join('');
+}
+  function removeEvidence(i){
+
+  // remove marker
+  if(evMarkers[i]){
+    map.removeLayer(evMarkers[i]);
+  }
+
+  // remove circle
+  if(evCircles[i]){
+    map.removeLayer(evCircles[i]);
+  }
+
+  // NOW remove from arrays (same index)
+  evPoints.splice(i,1);
+  evMarkers.splice(i,1);
+  evCircles.splice(i,1);
+
+  // re-number markers
+  evMarkers.forEach((m,idx)=>m.setIcon(evIcon(idx+1)));
+
+  updateEvCount();
+  renderEvidenceTab();
+  buildTimeline();
+  if(hmActive) renderHeatmap();
+}
+function clearEvidence(){
+  evMarkers.forEach(m=>map.removeLayer(m));evMarkers=[];evPoints=[];
+  updateEvCount();renderEvidenceTab();if(hmActive)renderHeatmap();
+}
+
+// HEATMAP
+function toggleHeatmap(){
+  hmActive=!hmActive;
+  document.getElementById('btn-hm').classList.toggle('active',hmActive);
+  document.getElementById('hm-legend').style.display=hmActive?'block':'none';
+  if(hmActive) renderHeatmap(); else{hmCircles.forEach(c=>map.removeLayer(c));hmCircles=[];}
+  toast(hmActive?'Heatmap enabled':'Heatmap disabled','info');
+}
+function renderHeatmap(){
+  hmCircles.forEach(c=>map.removeLayer(c));hmCircles=[];
+  evPoints.forEach(ep=>{
+    [[80000,'#ff000020'],[35000,'#ff660035'],[14000,'#ff990050']].forEach(([r,fill])=>{
+      const c=L.circle([ep.lat,ep.lon],{radius:r,color:'transparent',fillColor:fill,fillOpacity:1,interactive:false}).addTo(map);
+      hmCircles.push(c);
+    });
+  });
+}
+
+// SUSPECTS
+function openSuspectModal(ll){
+  susClickLL=ll;
+  document.getElementById('sus-name').value='';document.getElementById('sus-desc').value='';
+  document.getElementById('sus-loc').value=ll?ll[0].toFixed(5)+', '+ll[1].toFixed(5):'';
+  document.getElementById('sus-modal').style.display='flex';
+}
+function confirmSuspect(){
+  const name=document.getElementById('sus-name').value.trim();
+  if(!name){toast('Name required','error');return}
+  const desc=document.getElementById('sus-desc').value.trim(),loc=document.getElementById('sus-loc').value.trim();
+  suspects.push({name,desc,loc,ll:susClickLL,added:new Date().toISOString()});
+  if(susClickLL){const m=L.marker(susClickLL,{icon:susIcon()}).addTo(map).bindPopup(`<b style="color:#b388ff">👤 ${name}</b><br/>${desc||'No description'}`);susMarkers.push(m);}
+  document.getElementById('sus-modal').style.display='none';
+  renderSuspects();toast(`Suspect "${name}" added`,'info');
+}
+function renderSuspects(){
+  const el=document.getElementById('suspect-list');
+  if(!suspects.length){el.innerHTML='<div style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">No suspects logged.<br/>Use Suspect mode on map.</div>';return}
+  el.innerHTML=suspects.map((s,i)=>`
+    <div class="sus-item">
+      <button class="sus-del" onclick="removeSuspect(${i})">×</button>
+      <div class="sus-name">👤 ${s.name}</div>
+      <div class="sus-meta">${s.desc||'No description'}<br/><span style="font-family:'JetBrains Mono',monospace;font-size:9px">${s.loc||'No location'}</span></div>
+    </div>`).join('');
+}
+function removeSuspect(i){
+  suspects.splice(i,1);if(susMarkers[i]){map.removeLayer(susMarkers[i]);susMarkers.splice(i,1)}renderSuspects();
+}
+
+// SAVE/LOAD
+function openSaveModal(){
+  if(!startLL||!endLL){toast('Set Start and End first','error');return}
+  document.getElementById('sv-name').value=document.getElementById('inp-name').value||'';
+  document.getElementById('sv-notes').value='';document.getElementById('sv-off').value='';
+  document.getElementById('save-modal').style.display='flex';
+}
+function confirmSave(){
+  const name=document.getElementById('sv-name').value.trim()||'Untitled Case';
+  crimeHistory.unshift({id:Date.now(),case_name:name,crime_type:document.getElementById('inp-ctype').value,severity:document.getElementById('sv-sev').value,officer:document.getElementById('sv-off').value.trim(),notes:document.getElementById('sv-notes').value.trim(),start:startLL,end:endLL,evidence:evPoints,suspects:suspects,path_coords:pathCoords,segments:segments,total_distance:totalDist,total_duration:totalDur,timeline:timeline,created_at:new Date().toISOString()});
+  localStorage.setItem('cp_cases_v2',JSON.stringify(crimeHistory));
+  document.getElementById('save-modal').style.display='none';
+  document.getElementById('n-cases').textContent=crimeHistory.length;
+  renderCasesTab();toast(`Case "${name}" saved`,'success');
+}
+function renderCasesTab(){
+  const el=document.getElementById('cases-list');
+  if(!crimeHistory.length){el.innerHTML='<div style="color:var(--text3);font-size:11px;text-align:center;padding:20px 0">No saved cases yet</div>';return}
+  el.innerHTML=crimeHistory.map((c,i)=>`
+    <div class="case-item">
+      <div class="case-top"><div class="case-name">${c.case_name}</div><div class="sev sev-${c.severity}">${c.severity}</div></div>
+      <div class="case-meta">${c.crime_type?c.crime_type+' · ':''}<span style="color:var(--accent)">${(c.total_distance||0).toFixed(2)} km</span> · ${c.evidence.length} evidence · ${c.suspects?.length||0} suspects<br/>${c.officer?'👮 '+c.officer+' · ':''}${new Date(c.created_at).toLocaleString()}</div>
+      ${c.notes?`<div style="font-size:9px;color:var(--text3);font-style:italic;margin-bottom:6px">${c.notes.substring(0,70)}${c.notes.length>70?'…':''}</div>`:''}
+      <div class="case-actions">
+        <button class="cbtn" style="background:var(--accent-dim);border-color:var(--accent2);color:var(--accent)" onclick="loadCase(${i})">Load</button>
+        <button class="cbtn" style="background:var(--green-dim);border-color:#004020;color:var(--green)" onclick="exportCase(${i})">Export</button>
+        <button class="cbtn" style="background:var(--red-dim);border-color:#4a0000;color:var(--red)" onclick="deleteCase(${i})">Delete</button>
+      </div>
+    </div>`).join('');
+}
+function loadCase(i){
+  const c=crimeHistory[i]; clearMap(true);
+  startLL=c.start;endLL=c.end;pathCoords=c.path_coords||[];totalDist=c.total_distance||0;totalDur=c.total_duration||0;segments=c.segments||[];evPoints=c.evidence||[];suspects=c.suspects||[];timeline=c.timeline||[];
+  if(startMk) map.removeLayer(startMk); if(endMk) map.removeLayer(endMk);
+  startMk=L.marker(c.start,{icon:mkIcon('#00e676','S')}).addTo(map);
+  endMk=L.marker(c.end,{icon:mkIcon('#ff3d3d','E')}).addTo(map);
+  document.getElementById('inp-start').value=c.start[0].toFixed(5)+', '+c.start[1].toFixed(5);
+  document.getElementById('inp-end').value=c.end[0].toFixed(5)+', '+c.end[1].toFixed(5);
+  document.getElementById('inp-name').value=c.case_name;
+  document.getElementById('inp-ctype').value=c.crime_type||'';
+  if(pathCoords.length>1){glowLayer=L.polyline(pathCoords,{color:'#00c8ff',weight:12,opacity:.12}).addTo(map);routeLayer=L.polyline(pathCoords,{color:'#00c8ff',weight:3,opacity:.95}).addTo(map);}
+  evPoints.forEach((ep,idx)=>{const m=L.marker([ep.lat,ep.lon],{icon:evIcon(idx+1)}).addTo(map).bindPopup(`<b style="color:#ff9800">Evidence #${idx+1}</b><br/>${ep.description}`);evMarkers.push(m);});
+  suspects.forEach(s=>{if(s.ll){const m=L.marker(s.ll,{icon:susIcon()}).addTo(map).bindPopup(`<b style="color:#b388ff">👤 ${s.name}</b>`);susMarkers.push(m);}});
+  document.getElementById('path-card').style.display='block';
+  document.getElementById('m-dist').textContent=totalDist.toFixed(2)+' km';
+  document.getElementById('m-dur').textContent=totalDur.toFixed(0)+' min';
+  document.getElementById('m-seg').textContent=segments.length;
+  updateEvCount();document.getElementById('n-dist').textContent=totalDist.toFixed(2);
+  renderEvidenceTab();renderSuspects();renderTimeline();
+  if(pathCoords.length>1) map.fitBounds(L.latLngBounds(pathCoords),{padding:[40,40]});
+  else map.fitBounds(L.latLngBounds([c.start,c.end]),{padding:[60,60]});
+  switchTab('ctrl');toast(`Loaded: ${c.case_name}`,'info');
+}
+function deleteCase(i){if(!confirm('Delete this case?'))return;crimeHistory.splice(i,1);localStorage.setItem('cp_cases_v2',JSON.stringify(crimeHistory));document.getElementById('n-cases').textContent=crimeHistory.length;renderCasesTab();}
+function clearAllCases(){if(!confirm('Delete ALL cases?'))return;crimeHistory=[];localStorage.setItem('cp_cases_v2','[]');document.getElementById('n-cases').textContent=0;renderCasesTab();}
+function exportCase(i){const c=crimeHistory[i];dl(JSON.stringify(c,null,2),c.case_name.replace(/\s+/g,'_')+'.json');toast('Case exported','success')}
+function exportAllCases(){dl(JSON.stringify(crimeHistory,null,2),'crimepath_all_cases.json');toast('All cases exported','success')}
+function dl(content,name){const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([content],{type:'application/json'})),download:name});a.click();URL.revokeObjectURL(a.href)}
+
+// CLEAR MAP
+function clearMap(silent=false){
+  [startMk,endMk,routeLayer,glowLayer].forEach(l=>{if(l)map.removeLayer(l)});
+  startMk=endMk=routeLayer=glowLayer=null;
+  evMarkers.forEach(m=>map.removeLayer(m));evMarkers=[];
+  susMarkers.forEach(m=>map.removeLayer(m));susMarkers=[];
+  hmCircles.forEach(c=>map.removeLayer(c));hmCircles=[];
+  zoneLayers.forEach(l=>map.removeLayer(l));zoneLayers=[];
+  clearMeasure();
+  startLL=endLL=null;pathCoords=[];segments=[];totalDist=totalDur=0;evPoints=[];suspects=[];timeline=[];zonePts=[];
+  ['inp-start','inp-end','inp-name'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('inp-ctype').value='';
+  document.getElementById('path-card').style.display='none';
+  updateEvCount();document.getElementById('n-dist').textContent='—';
+  renderEvidenceTab();renderSuspects();renderTimeline();
+  if(!silent){setStatus('Map cleared','info');toast('Map cleared','info');}
+}
+
+// FIT ROUTE
+function fitRoute(){
+  if(pathCoords.length>1) map.fitBounds(L.latLngBounds(pathCoords),{padding:[40,40]});
+  else if(startLL&&endLL) map.fitBounds(L.latLngBounds([startLL,endLL]),{padding:[60,60]});
+}
+
+// MAP STYLE
+function setMapStyle(s){
+  map.removeLayer(tiles[curStyle]);tiles[s].addTo(map);curStyle=s;
+  document.querySelectorAll('.style-opt').forEach(el=>el.classList.remove('sel'));
+  const idx=['dark','satellite','topo','light'].indexOf(s);
+  document.querySelectorAll('.style-opt')[idx]?.classList.add('sel');
+  document.getElementById('style-panel').style.display='none';
+  toast('Map: '+s,'info');
+}
+function toggleStylePanel(){const p=document.getElementById('style-panel');p.style.display=p.style.display==='flex'?'none':'flex';}
+
+// GEOCODE
+async function geocode(){
+  const q=document.getElementById('geo-inp').value.trim(); if(!q) return;
+  try{
+    const d=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`).then(r=>r.json());
+    if(d[0]){map.setView([+d[0].lat,+d[0].lon],14);toast('Found: '+d[0].display_name.substring(0,40),'success');}
+    else toast('Location not found','error');
+  }catch(e){toast('Search failed','error')}
+}
+
+// SIDEBAR TOGGLE
+function toggleSidebar(){
+  sbOpen=!sbOpen;
+  document.getElementById('sidebar').style.width=sbOpen?'340px':'0px';
+  document.getElementById('tsidebar').textContent=sbOpen?'◀':'▶';
+}
+
+// FULLSCREEN
+function toggleFullscreen(){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}
+
+function filterEvidence(type){
+  evMarkers.forEach((m,i)=>{
+    if(type==='all') m.addTo(map);
+    else if(evPoints[i].category===type) m.addTo(map);
+    else map.removeLayer(m);
+  });
+}
+
+// TABS
+function switchTab(t){
+  ['ctrl','cases','evidence','timeline','suspects'].forEach(id=>document.getElementById('tab-'+id).style.display=id===t?'block':'none');
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['ctrl','cases','evidence','timeline','suspects'][i]===t));
+  if(t==='cases') renderCasesTab();
+  if(t==='evidence') renderEvidenceTab();
+  if(t==='suspects') renderSuspects();
+  if(t==='timeline') renderTimeline();
+}
+
+// INIT
+document.getElementById('n-cases').textContent=crimeHistory.length;
+document.getElementById('geo-inp').addEventListener('keydown',e=>{if(e.key==='Enter')geocode()});
+renderCasesTab();renderEvidenceTab();renderSuspects();
+setStatus('Select a mode, then click the map to begin','info');
+</script>
+</body>
+</html>
